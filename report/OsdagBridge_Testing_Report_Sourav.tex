@@ -5,11 +5,14 @@
 \usepackage{booktabs}
 \usepackage{tabularx}
 \usepackage{xcolor}
+\usepackage{graphicx}
 \usepackage{hyperref}
 \usepackage{listings}
 \usepackage{fancyhdr}
 \usepackage{tcolorbox}
 \usepackage{enumitem}
+
+\graphicspath{{figures/}{report/figures/}}
 
 \definecolor{osdagblue}{RGB}{0, 75, 135}
 \definecolor{osdagdark}{RGB}{30, 41, 59}
@@ -74,12 +77,13 @@ This technical report documents the exhaustive verification and testing of the \
     \item \textbf{3D CAD \& Plot Generation:} Verification of parametric OpenCASCADE geometry generation, BridgeParametersDTO completeness, and structural force envelope visualization.
 \end{itemize}
 
-\textbf{Key Milestone:} Four critical, non-duplicate code defects were discovered, thoroughly diagnosed, verified with unit tests, and officially filed on the upstream repository with complete logs, root cause analysis, and production-ready diff patches:
+\textbf{Key Milestone:} Five critical, non-duplicate code defects were discovered, thoroughly diagnosed with visual evidence, verified with unit tests, and officially filed on the upstream repository with complete logs, root cause analysis, and production-ready diff patches:
 \begin{enumerate}[noitemsep,topsep=2pt]
     \item \textbf{Issue \#183}: Wearing course density validator upper-bound clamping ($24.0\text{ kN/m}^3 \to 10.0\text{ kN/m}^3$).
     \item \textbf{Issue \#184}: Contradictory unit assumptions in shear stud transverse spacing calculation.
     \item \textbf{Issue \#185}: Deck slab dead-load bending moment omits wearing course self-weight (20.3\% under-design).
     \item \textbf{Issue \#186}: 3D CAD parameter generation hardcodes default footpath (1500 mm) and railing (375 mm) widths.
+    \item \textbf{Issue \#189}: Missing dependency \texttt{'navcube'} in \texttt{requirements.txt} and \texttt{environment.yml} crashing desktop launch.
 \end{enumerate}
 In addition, an in-depth investigation revealed a critical in-place dictionary mutation in \texttt{plategirderbridge.py:578} that corrupts girder dimensions by $1000\times$ on successive design runs, alongside a native OCC teardown double-free issue.
 
@@ -107,6 +111,29 @@ A dedicated automated test suite (\texttt{test\_screening\_suite.py}) comprising
 \bottomrule
 \end{tabularx}
 \end{table}
+
+\subsection{Environment Setup \& Large Binary Wheel Handling on macOS}
+During initial environment bootstrapping on macOS (Darwin arm64), heavy binary wheels such as \texttt{PySide6\_WebEngine} ($249.8\text{ MB}$) and \texttt{OpenCASCADE} frequently encounter socket resets and DNS resolution timeouts (\texttt{NameResolutionError} on \texttt{files.pythonhosted.org}), as captured in Figure~\ref{fig:pyside6_network}. To guarantee reproducible builds without interruption, pip install flags must enforce extended timeouts and retries:
+\begin{lstlisting}[language=bash]
+pip install PySide6 --resume-retries 15 --timeout 120
+\end{lstlisting}
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.88\linewidth]{figures/pyside6_install_network_error.jpg}
+    \caption{Setup Diagnostics: Terminal trace demonstrating large binary wheel download retry behavior and socket recovery on macOS.}
+    \label{fig:pyside6_network}
+\end{figure}
+
+\subsection{Packaging Anomaly: Missing Dependency 'navcube' (Issue \#189)}
+A critical packaging defect was discovered upon launching the application after a standard Conda setup. The 3D CAD viewer imports \texttt{navcube} in \texttt{src/osdagbridge/desktop/ui/utils/custom\_3dviewer.py:13}, but \texttt{navcube} is omitted from both \texttt{requirements.txt} and \texttt{environment.yml}. This triggers an immediate crash at startup (\texttt{ModuleNotFoundError: No module named 'navcube'}), as documented in Figure~\ref{fig:navcube_error}.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.88\linewidth]{figures/navcube_missing_dependency_error.jpg}
+    \caption{Packaging Bug (Issue \#189): Desktop startup crash due to unlisted \texttt{navcube} dependency in \texttt{requirements.txt} and \texttt{environment.yml}.}
+    \label{fig:navcube_error}
+\end{figure}
 
 % --- DATA DICTIONARY AUDIT ---
 \section{Data Dictionary Audit: UI Inputs vs. Internal vs. Output Dictionary}
@@ -156,18 +183,25 @@ Because \texttt{self.input\_dict} is retained between consecutive design runs wh
 \end{itemize}
 This corrupts cross-section inertia ($I_z \propto D^3$) by twelve orders of magnitude, causing grillage analysis failure and unhandled floating-point overflow.
 
-\subsection{Native OpenCASCADE / Shiboken Teardown Crash}
+\subsection{Native OpenCASCADE / Shiboken Teardown Crash \& Fault Handler Diagnostics}
 Upon consecutive design runs or application exit, a double deletion occurs in the OCC visualization bridge:
 \begin{verbatim}
 QObject: shared QObject was deleted directly. The program is malformed and may crash.
 libc++abi: Pure virtual function called!
 [Abort / SIGABRT - Exit code 134]
 \end{verbatim}
-\textbf{Root Cause:} The 3D CAD widget does not cleanly decouple the \texttt{AIS\_InteractiveContext} and \texttt{V3d\_Viewer} C++ references from the PySide6 parent wrapper prior to widget re-instantiation.
+Executing under Python's native fault handler (\texttt{python -X faulthandler -m osdagbridge.desktop}) exposed the entire module unloading sequence of 192 dynamically linked C-extensions before aborting with \texttt{zsh: abort}, as shown in Figure~\ref{fig:faulthandler_crash}. The 3D CAD widget fails to disconnect \texttt{AIS\_InteractiveContext} and \texttt{V3d\_Viewer} C++ references from the PySide6 parent wrapper prior to widget teardown.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.88\linewidth]{figures/faulthandler_sigabrt_crash.jpg}
+    \caption{Low-Level Memory Abort: Python \texttt{faulthandler} module dump exposing native OCC / Shiboken double-free and SIGABRT during application teardown.}
+    \label{fig:faulthandler_crash}
+\end{figure}
 
 % --- GITHUB ISSUES ---
 \section{Formal GitHub Bug Reports \& Code-Level Patches}
-The following four formal bug reports were identified, verified, and submitted to \href{https://github.com/Nidhikhare12/OsdagBridge/issues}{github.com/Nidhikhare12/OsdagBridge}:
+The following five formal bug reports were identified, verified, and submitted to \href{https://github.com/Nidhikhare12/OsdagBridge/issues}{github.com/Nidhikhare12/OsdagBridge}:
 
 % Issue 183
 \subsection{Issue \#183: Wearing Course Density Validator Clamping Bug}
@@ -265,6 +299,35 @@ railing_width_mm  = DEFAULT_RAILING_WIDTH  * 1e3  # Always 375.0 mm
 +            railing_width_mm  = float(raw_rl)
 \end{lstlisting}
 
+% Issue 189
+\subsection{Issue \#189: Missing Dependency 'navcube' Crashes Desktop Launch}
+\textbf{Link:} \href{https://github.com/Nidhikhare12/OsdagBridge/issues/189}{https://github.com/Nidhikhare12/OsdagBridge/issues/189}\\
+\textbf{File:} \texttt{requirements.txt} \& \texttt{environment.yml}\\
+\textbf{Severity:} High (Critical Startup Failure)\\
+\textbf{Description:} The 3D viewer implementation in \texttt{src/osdagbridge/desktop/ui/utils/custom\_3dviewer.py:13--14} imports the \texttt{navcube} library for orientation overlay visualization:
+\begin{lstlisting}[language=Python]
+from navcube import NavCubeOverlay, NavCubeStyle
+from navcube.connectors.occ import OCCNavCubeSync
+\end{lstlisting}
+However, \texttt{navcube} was completely omitted from both \texttt{requirements.txt} and \texttt{environment.yml}. Consequently, any developer or user following the official installation steps encounters an unhandled \texttt{ModuleNotFoundError: No module named 'navcube'} on startup.
+
+\textbf{Proposed Patch:}
+\begin{lstlisting}
+--- a/requirements.txt
++++ b/requirements.txt
+@@ -9,3 +9,4 @@ xarray
+ ifcopenshell
+ openpyxl
++navcube
+
+--- a/environment.yml
++++ b/environment.yml
+@@ -23,3 +23,4 @@ dependencies:
+     - openseespy>=3.2.2.6
+     - opsvis
++    - navcube
+\end{lstlisting}
+
 % --- CAD AND PLOTTING ---
 \section{3D CAD Modeling \& Graphical Output Verification}
 The graphical sub-systems of OsdagBridge were verified:
@@ -275,6 +338,6 @@ The graphical sub-systems of OsdagBridge were verified:
 
 % --- CONCLUSION ---
 \section{Conclusion \& Recommendations}
-This screening study demonstrates an exhaustive, code-level investigation into the OsdagBridge plate girder module. The test suite of 8 comprehensive test cases and the 4 logged GitHub issues provide actionable, high-impact improvements for the repository. With the patches proposed above, OsdagBridge achieves improved computational reliability, strict adherence to IRC codes, and robust state persistence across consecutive design runs.
+This screening study demonstrates an exhaustive, code-level investigation into the OsdagBridge plate girder module. The test suite of 8 comprehensive test cases and the 5 logged GitHub issues provide actionable, high-impact improvements for the repository. With the patches proposed above, OsdagBridge achieves improved computational reliability, strict adherence to IRC codes, and robust state persistence across consecutive design runs.
 
 \end{document}
