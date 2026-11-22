@@ -29,8 +29,8 @@ This submission package contains the complete, rigorous verification and code-le
 submission/
 ├── OsdagBridge_Testing_Report_Sourav.pdf   # Publication-grade compiled LaTeX report
 ├── OsdagBridge_Testing_Submission_Sourav.zip # Complete archive for FOSSEE portal submission
-├── README.md                                # This document
-├── VIDEO_DEMO_SCRIPT.md                     # Step-by-step screencast video guide
+├── OsdagBridge_Testing_Demo_Sourav.mp4     # Silent screen recording demonstration video
+├── README.md                                # Submission summary and execution guide
 ├── generate_osi_cases.py                    # Generator script for test-case OSI files
 ├── figures/                                 # Visual diagnostic screenshots (PySide6, NavCube, SIGABRT)
 └── test_cases/                              # Runnable OSI test-case files
