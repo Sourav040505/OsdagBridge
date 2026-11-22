@@ -2,7 +2,7 @@
 
 **Project Category:** Software Development / Civil Engineering  
 **Project Topic:** OsdagBridge Software Testing & Issue Reporting  
-**Candidate Name:** Sourav Mukherjee  
+**Author:** Sourav Goswami  
 **GitHub Repository:** [https://github.com/Sourav040505/OsdagBridge](https://github.com/Sourav040505/OsdagBridge) (`dev` branch)  
 **Upstream Repository:** [https://github.com/Nidhikhare12/OsdagBridge](https://github.com/Nidhikhare12/OsdagBridge) (`dev` branch)  
 **Collaborator Invited:** `Nidhikhare12` (GitHub API Invitation ID: `345151077`, Write Permissions)

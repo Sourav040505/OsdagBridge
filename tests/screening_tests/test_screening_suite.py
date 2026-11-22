@@ -1,7 +1,7 @@
 """
 FOSSEE Osdag Winter Internship 2026 - Screening Task Test Suite
 Project: OsdagBridge Software Testing & Issue Reporting
-Candidate: Sourav Mukherjee
+Candidate: Sourav Goswami
 
 Comprehensive multi-level test suite covering:
 - TC-01: Baseline Design & Output Dictionary Verification

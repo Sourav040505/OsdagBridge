@@ -1,7 +1,7 @@
 """
 Script to generate screening test case OSI files for OsdagBridge.
 FOSSEE Osdag Winter Internship 2026
-Candidate: Sourav Mukherjee
+Candidate: Sourav Goswami
 """
 
 import os
